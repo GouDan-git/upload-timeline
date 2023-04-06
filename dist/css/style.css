@@ -1,0 +1,110 @@
+.upline-timeline-drawer {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+}
+
+.upline-filter-button {
+    padding: 15px 10px;
+}
+
+.upline-filter-button .upline-button {
+    font-size: 14px;
+    cursor: pointer;
+    color: #0696d7;
+}
+
+.upline-filter-button .upline-button:hover {
+    color: #21adee;
+}
+
+.upline-cut-off-rule {
+    background: #f2f2f2;
+    cursor: col-resize;
+    width: 4px;
+    flex-shrink: 0;
+}
+
+.upline-pull-tab {
+    width: 100%;
+    flex: 1 1;
+    overflow: hidden;
+    min-width: 600px;
+}
+
+.upline-timeline-legend {
+    width: 200px;
+    padding-right: 10px;
+    min-width: 200px;
+    max-width: 500px;
+}
+
+.upline-selectable {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    background-color: rgb(84, 110, 122);
+    margin: 10px 5px;
+    padding-left: 5px;
+    color: #FFFFFF;
+    height: 20px;
+    line-height: 20px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.upline-scroll-bar {
+    height: 32px;
+    display: flex;
+    margin: 24px 30px 4px 30px;
+}
+
+.upline-scroll-button {
+    width: 16px;
+    height: 16px;
+    background-color: #aaa;
+    border-radius: 2px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+}
+
+.upline-scroll-button img {
+    width: 14px;
+    height: 14px;
+}
+
+.upline-slider {
+    position: relative;
+    height: 8px;
+    background-color: #ddd;
+    margin: 4px 8px;
+    flex: 1 1 auto;
+    display: flex;
+}
+
+.upline-grip {
+    background-color: #aaa;
+    height: 100%;
+    cursor: pointer;
+    position: absolute;
+}
+
+.upline-clickable:hover {
+    background-color: rgb(102, 102, 102);
+}
+
+#leftDrag {
+    position: absolute;
+    top: -4px;
+    margin-left: -8px;
+    z-index: 9999;
+}
+
+#rightDrag {
+    position: absolute;
+    top: -4px;
+    margin-left: -8px;
+    z-index: 9999;
+}
