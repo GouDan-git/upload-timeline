@@ -23,3 +23,5 @@ let uploadTimeline = new UploadTimeline(doc, [
     },
 ])
 ```
+## show
+![组件样式](./dist/img/show.jpg)
