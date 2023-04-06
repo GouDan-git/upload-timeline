@@ -1,5 +1,8 @@
 # upload_timeline
 ## USAGE
+```node
+npm install upload-timeline
+```
 ```javascript
 import { UploadTimeline } from "upload-timeline";
 let doc = document.getElementById("uploadTimeline");
