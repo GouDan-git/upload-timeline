@@ -62,7 +62,7 @@ function documentInit(theDocument, data) {
   slider.id = "slider";
 
   const leftDrag = document.createElement("div");
-  leftDrag.className = "upline-scroll-button upline-clickable";
+  leftDrag.className = "upline-left-drag upline-scroll-button upline-clickable";
   leftDrag.id = "leftDrag";
   const imgleftDrag = document.createElement("img");
   imgleftDrag.src = "/node_modules/upload-timeline/dist/img/drag.svg";
@@ -74,7 +74,8 @@ function documentInit(theDocument, data) {
   grip.id = "grip";
 
   const rightDrag = document.createElement("div");
-  rightDrag.className = "upline-scroll-button upline-clickable";
+  rightDrag.className =
+    "upline-right-drag upline-scroll-button upline-clickable";
   rightDrag.id = "rightDrag";
   const imgRightDrag = document.createElement("img");
   imgRightDrag.src = "/node_modules/upload-timeline/dist/img/drag.svg";

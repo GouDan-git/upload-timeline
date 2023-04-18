@@ -1,7 +1,7 @@
 // 常量
-const POW_TIMES = 3; // 滚动条曲线（暂时采用三次方曲线）
 const YEAR_TIME_LENGTH = 31536000000; // 一年的时长
 const MONTH_TIME_LENGTH = 2678400000; // 一个月的时长
+const WEEK_TIME_LENGTH = 604800000; // 一周的时长
 const DAY_TIME_LENGTH = 86400000; // 一天的时长
 const HOUR_TIME_LENGTH = 3600000; // 一小时的时长
 const MAX_VIEW_PROPORTION = 0.9; // 当单块时间占据90%的显示区域，进入下一级，如年-->月
@@ -23,6 +23,8 @@ let doc_grip;
 let doc_slider;
 let doc_timeline_legend;
 let doc_cut_off_rule;
+let doc_left_drag_time;
+let doc_right_drag_time;
 
 // 变量
 let left = 0; // 左侧拖动按钮位置百分比
@@ -62,6 +64,8 @@ function getDoc() {
   doc_slider = document.getElementById("slider");
   doc_timeline_legend = document.getElementById("timelineLegend");
   doc_cut_off_rule = document.getElementById("cutOffRule");
+  doc_left_drag_time = document.getElementById("leftDragTime");
+  doc_right_drag_time = document.getElementById("rightDragTime");
 }
 
 /**
@@ -126,7 +130,7 @@ function resizeScroll() {
   doc_grip.style.left = doc_left_drag.style.left = sliderWidth * left + "px";
   doc_right_drag.style.left = sliderWidth * right + "px";
   doc_grip.style.width = (right - left) * sliderWidth + "px";
-  draw(left, Math.pow(right - left, POW_TIMES), DATA);
+  draw(left, right - left, DATA);
 }
 
 /**
@@ -137,15 +141,20 @@ function resizeScroll() {
 function draw(offset, times) {
   doc_ctx.clearRect(0, 0, doc_canvas.width, doc_canvas.height);
   if (YEAR_TIME_LENGTH / TOTAL_TIME / times < MAX_VIEW_PROPORTION) {
-    drawRect(offset, times, EACH_TIME_ARRAY.yearArray);
+    drawRect(offset, times, EACH_TIME_ARRAY.yearArray, "year");
   } else if (MONTH_TIME_LENGTH / TOTAL_TIME / times < MAX_VIEW_PROPORTION) {
-    drawRect(offset, times, EACH_TIME_ARRAY.monthArray);
+    drawRect(offset, times, EACH_TIME_ARRAY.monthArray, "month");
+  } else if (WEEK_TIME_LENGTH / TOTAL_TIME / times < MAX_VIEW_PROPORTION) {
+    drawRect(offset, times, EACH_TIME_ARRAY.weekArray, "week");
   } else if (DAY_TIME_LENGTH / TOTAL_TIME / times < MAX_VIEW_PROPORTION) {
-    drawRect(offset, times, EACH_TIME_ARRAY.dayArray);
+    drawRect(offset, times, EACH_TIME_ARRAY.dayArray, "day");
   } else {
-    drawRect(offset, times, EACH_TIME_ARRAY.hourArray);
+    drawRect(offset, times, EACH_TIME_ARRAY.hourArray, "hour");
   }
   drawLine();
+  setLeftDragTime();
+  setRightDragTime();
+  // drawUpload();
 }
 
 /**
@@ -153,21 +162,66 @@ function draw(offset, times) {
  * @param {*} offset 偏移量（百分比）
  * @param {*} times 放大倍数
  * @param {*} timeArray 时间间隔数组
+ * @param {*} timeType 时间类型（年/月/日/小时）
  */
-function drawRect(offset, times, timeArray) {
+function drawRect(offset, times, timeArray, timeType) {
   let leftPointer = 0;
   for (let i = 0; i < timeArray.length; i++) {
-    let rectWidth = (doc_canvas.width * timeArray[i].interval) / times;
-    doc_ctx.fillStyle =
-      i % 2 === 0 ? "rgb(238, 238, 238)" : "rgb(255, 255, 255)";
-    doc_ctx.fillRect(
-      leftPointer - (offset * doc_canvas.width) / times,
-      0,
-      rectWidth,
-      doc_canvas.height
-    );
+    const rectWidth = (doc_canvas.width * timeArray[i].interval) / times;
+    const rectLeft = leftPointer - (offset * doc_canvas.width) / times;
+    // 判断是否在绘制区域内（性能优化）
+    if (rectLeft < doc_canvas.width && rectLeft > -doc_canvas.width) {
+      // 绘制rect
+      doc_ctx.fillStyle =
+        i % 2 === 0 ? "rgb(238, 238, 238)" : "rgb(255, 255, 255)";
+      doc_ctx.fillRect(rectLeft, 0, rectWidth, doc_canvas.height);
+      // 绘制时间text
+      doc_ctx.fillStyle = "rgb(187, 187, 187)";
+      doc_ctx.font = "12px Arial";
+      const text = getTimeText(timeArray[i].startTime, timeType);
+      const textWidth = doc_ctx.measureText(text).width;
+      // 判断react长度够不够显示text
+      if (textWidth < rectWidth) {
+        doc_ctx.fillText(text, rectLeft + rectWidth / 2 - textWidth / 2, 38);
+      }
+    }
     leftPointer += rectWidth;
   }
+}
+
+/**
+ * @description 绘制上传的文件
+ */
+// TODO
+function drawUpload() {
+  const dragStartTime = new Date(START_TIME.getTime() + left * TOTAL_TIME);
+  const dragEndTime = new Date(START_TIME.getTime() + right * TOTAL_TIME);
+  // const gripLength = right - left;
+  // DATA.forEach((team, index) => {
+  //   team.uploadHistory.forEach((history) => {});
+  // });
+}
+
+/**
+ *
+ * @param {*} time DATE信息
+ * @param {*} timeType 时间类型
+ * @returns 返回显示在时间线上的时间文本
+ */
+function getTimeText(time, timeType) {
+  let text = "";
+  if (timeType === "year") {
+    text = time.getFullYear() + "年";
+  } else if (timeType === "month") {
+    text = time.getMonth() + 1 + "月";
+  } else if (timeType === "week") {
+    text = getWeek(time) + "周";
+  } else if (timeType === "day") {
+    text = formateDate(time);
+  } else if (timeType === "hour") {
+    text = time.getHours();
+  }
+  return text;
 }
 
 /**
@@ -188,17 +242,16 @@ function leftDragMousemove(event) {
   const sliderLeft = doc_slider.offsetLeft;
   const sliderWidth = doc_slider.offsetWidth;
   const left2 = (event.x - sliderLeft) / sliderWidth;
-  let rightDragLeft = doc_right_drag.style.left?.replace("px", "") || "0";
+  const rightDragLeft = doc_right_drag.style.left?.replace("px", "") || "0";
   if (
     event.x - sliderLeft >= 0 &&
     event.x - sliderLeft <= parseInt(rightDragLeft) - 20 &&
-    HOUR_TIME_LENGTH / TOTAL_TIME / Math.pow(right - left2, POW_TIMES) <
-      MAX_VIEW_PROPORTION
+    HOUR_TIME_LENGTH / TOTAL_TIME / (right - left2) < MAX_VIEW_PROPORTION
   ) {
     grip.style.left = doc_left_drag.style.left = event.x - sliderLeft + "px";
     grip.style.width = rightDragLeft - event.x + sliderLeft + "px";
     left = left2;
-    draw(left, Math.pow(right - left, POW_TIMES));
+    draw(left, right - left);
   }
 }
 
@@ -210,17 +263,16 @@ function rightDragMousemove(event) {
   const sliderLeft = doc_slider.offsetLeft;
   const sliderWidth = doc_slider.offsetWidth;
   const right2 = (event.x - sliderLeft) / sliderWidth;
-  let leftDragLeft = doc_left_drag.style.left?.replace("px", "") || "0";
+  const leftDragLeft = doc_left_drag.style.left?.replace("px", "") || "0";
   if (
     event.x - sliderLeft <= sliderWidth &&
     event.x - sliderLeft >= parseInt(leftDragLeft) + 20 &&
-    HOUR_TIME_LENGTH / TOTAL_TIME / Math.pow(right2 - left, POW_TIMES) <
-      MAX_VIEW_PROPORTION
+    HOUR_TIME_LENGTH / TOTAL_TIME / (right2 - left) < MAX_VIEW_PROPORTION
   ) {
     doc_right_drag.style.left = event.x - sliderLeft + "px";
     grip.style.width = event.x - sliderLeft - leftDragLeft + "px";
     right = right2;
-    draw(left, Math.pow(right - left, POW_TIMES));
+    draw(left, right - left);
   }
 }
 
@@ -231,14 +283,14 @@ function rightDragMousemove(event) {
 function middleDragMousemove(event) {
   const sliderLeft = doc_slider.offsetLeft;
   const sliderWidth = doc_slider.offsetWidth;
-  let dragWidth = grip.style.width?.replace("px", "") || "0";
-  let dragLeft = event.x - sliderLeft - middleDraglayerX;
+  const dragWidth = grip.style.width?.replace("px", "") || "0";
+  const dragLeft = event.x - sliderLeft - middleDraglayerX;
   if (dragLeft >= 0 && dragLeft + parseInt(dragWidth) <= sliderWidth) {
     grip.style.left = doc_left_drag.style.left = dragLeft + "px";
     doc_right_drag.style.left = dragLeft + parseInt(dragWidth) + "px";
     left = dragLeft / sliderWidth;
     right = (dragLeft + parseInt(dragWidth)) / sliderWidth;
-    draw(left, Math.pow(right - left, POW_TIMES));
+    draw(left, right - left);
   }
 }
 
@@ -269,12 +321,17 @@ function mouseUp() {
 function getTimeArray() {
   let yearArray = getYearArray(START_TIME, END_TIME, TOTAL_TIME);
   let monthArray = [];
+  let weekArray = [];
   let dayArray = [];
   let hourArray = [];
   yearArray.forEach((item) => {
     monthArray = [
       ...monthArray,
       ...getMonthArray(item.startTime, item.endTime, TOTAL_TIME),
+    ];
+    weekArray = [
+      ...weekArray,
+      ...getWeekArray(item.startTime, item.endTime, TOTAL_TIME),
     ];
   });
   monthArray.forEach((item) => {
@@ -292,6 +349,7 @@ function getTimeArray() {
   return {
     yearArray,
     monthArray,
+    weekArray,
     dayArray,
     hourArray,
   };
@@ -305,11 +363,11 @@ function getTimeArray() {
  * @returns 返回时间间隔为年的时间数组
  */
 function getYearArray(startTime, endTime, totalTime) {
-  let startYear = startTime.getFullYear();
-  let endYear = endTime.getFullYear();
-  let yearArray = [];
+  const startYear = startTime.getFullYear();
+  const endYear = endTime.getFullYear();
+  const yearArray = [];
   for (let i = startYear; i <= endYear; i++) {
-    let yearItem = {};
+    const yearItem = {};
     if (i === startYear && i === endYear) {
       yearItem.startTime = startTime;
       yearItem.endTime = endTime;
@@ -338,12 +396,12 @@ function getYearArray(startTime, endTime, totalTime) {
  * @returns 返回时间间隔为月的时间数组
  */
 function getMonthArray(startTime, endTime2, totalTime) {
-  let endTime = new Date(endTime2.getTime() - 1);
-  let startMonth = startTime.getMonth() + 1;
-  let endMonth = endTime.getMonth() + 1;
-  let monthArray = [];
+  const endTime = new Date(endTime2.getTime() - 1);
+  const startMonth = startTime.getMonth() + 1;
+  const endMonth = endTime.getMonth() + 1;
+  const monthArray = [];
   for (let i = startMonth; i <= endMonth; i++) {
-    let monthItem = {};
+    const monthItem = {};
     if (i === startMonth && i === endMonth) {
       monthItem.startTime = startTime;
       monthItem.endTime = endTime2;
@@ -373,6 +431,49 @@ function getMonthArray(startTime, endTime2, totalTime) {
 }
 
 /**
+ * @description 获取周为单位的时间数组
+ * @param {*} startTime 开始时间
+ * @param {*} endTime2 结束时间
+ * @param {*} totalTime 开始时间到结束时间的总时长
+ * @returns 返回时间间隔为周的时间数组
+ */
+function getWeekArray(startTime, endTime2, totalTime) {
+  const endTime = new Date(endTime2.getTime() - 1);
+  const startWeek = getWeek(startTime);
+  const endWeek = getWeek(endTime);
+  const weekArray = [];
+  const startDay = getFirstWeekTime(startTime);
+  for (let i = startWeek; i <= endWeek; i++) {
+    const weekItem = {};
+    if (i === startWeek && i === endWeek) {
+      weekItem.startTime = startTime;
+      weekItem.endTime = endTime2;
+    } else if (i === startWeek) {
+      weekItem.startTime = startTime;
+      weekItem.endTime = new Date(
+        startDay.getTime() + (i - 1) * WEEK_TIME_LENGTH
+      );
+    } else if (i === endWeek) {
+      weekItem.startTime = new Date(
+        startDay.getTime() + (i - 2) * WEEK_TIME_LENGTH
+      );
+      weekItem.endTime = endTime2;
+    } else {
+      weekItem.startTime = new Date(
+        startDay.getTime() + (i - 2) * WEEK_TIME_LENGTH
+      );
+      weekItem.endTime = new Date(
+        startDay.getTime() + (i - 1) * WEEK_TIME_LENGTH
+      );
+    }
+    weekItem.interval =
+      (weekItem.endTime.getTime() - weekItem.startTime.getTime()) / totalTime;
+    weekArray.push(weekItem);
+  }
+  return weekArray;
+}
+
+/**
  * @description 获取日为单位的时间数组
  * @param {*} startTime 开始时间
  * @param {*} endTime2 结束时间
@@ -380,14 +481,14 @@ function getMonthArray(startTime, endTime2, totalTime) {
  * @returns 返回时间间隔为日的时间数组
  */
 function getDayArray(startTime, endTime2, totalTime) {
-  let endTime = new Date(endTime2.getTime() - 1);
-  let year = startTime.getFullYear();
-  let month = startTime.getMonth() + 1;
-  let startDay = startTime.getDate();
-  let endDay = endTime.getDate();
-  let dayArray = [];
+  const endTime = new Date(endTime2.getTime() - 1);
+  const year = startTime.getFullYear();
+  const month = startTime.getMonth() + 1;
+  const startDay = startTime.getDate();
+  const endDay = endTime.getDate();
+  const dayArray = [];
   for (let i = startDay; i <= endDay; i++) {
-    let dayItem = {};
+    const dayItem = {};
     if (i === startDay && i === endDay) {
       dayItem.startTime = startTime;
       dayItem.endTime = endTime2;
@@ -416,15 +517,15 @@ function getDayArray(startTime, endTime2, totalTime) {
  * @returns 返回时间间隔为小时的时间数组
  */
 function getHourArray(startTime, endTime2, totalTime) {
-  let endTime = new Date(endTime2.getTime() - 1);
-  let year = startTime.getFullYear();
-  let month = startTime.getMonth() + 1;
-  let day = startTime.getDate();
-  let startHour = startTime.getHours();
-  let endHour = endTime.getHours();
-  let hourArray = [];
+  const endTime = new Date(endTime2.getTime() - 1);
+  const year = startTime.getFullYear();
+  const month = startTime.getMonth() + 1;
+  const day = startTime.getDate();
+  const startHour = startTime.getHours();
+  const endHour = endTime.getHours();
+  const hourArray = [];
   for (let i = startHour; i <= endHour; i++) {
-    let hourItem = {};
+    const hourItem = {};
     if (i === startHour && i === endHour) {
       hourItem.startTime = startTime;
       hourItem.endTime = endTime2;
@@ -483,6 +584,67 @@ function getStartEndTime() {
     endTime = new Date(endTime.getTime() + 3600000);
   }
   return [startTime, endTime];
+}
+
+/**
+ * @description 根据时间计算当前时间是一年中的第几周
+ * @param {*} time 时间
+ * @returns 返回第几周
+ */
+function getWeek(time) {
+  const startDay = getFirstWeekTime(time);
+  let weekNum = 1;
+  if (time.getTime() >= startDay.getTime()) {
+    weekNum =
+      Math.floor((time.getTime() - startDay.getTime()) / WEEK_TIME_LENGTH) + 2;
+  }
+  return weekNum;
+}
+
+/**
+ * @description 获取当前年第一个周一
+ * @param {*} time 时间
+ * @returns 返回Date
+ */
+function getFirstWeekTime(time) {
+  const year = time.getFullYear();
+  const firstDay = new Date(year + "/01/01 00:00");
+  const firstWeekNum = firstDay.getDay() === 0 ? 7 : firstDay.getDay();
+  const startDay =
+    firstWeekNum === 1
+      ? firstDay
+      : new Date(year + "/01/" + (9 - firstWeekNum) + " 00:00");
+  return startDay;
+}
+
+/**
+ * @description 设置leftDrag的时间点
+ */
+function setLeftDragTime() {
+  const time = new Date(START_TIME.getTime() + left * TOTAL_TIME);
+  doc_left_drag_time.innerText = formateDate(time);
+  doc_left_drag_time.style.left = doc_left_drag.style.left;
+}
+
+/**
+ * @description 设置rightDrag的时间点
+ */
+function setRightDragTime() {
+  const time = new Date(START_TIME.getTime() + right * TOTAL_TIME);
+  doc_right_drag_time.innerText = formateDate(time);
+  doc_right_drag_time.style.left = doc_right_drag.style.left;
+}
+
+/**
+ * @description 时间格式转换成 yyyy/mm/dd
+ * @param {*} time 时间
+ */
+function formateDate(time) {
+  const year = time.getFullYear();
+  const month =
+    time.getMonth() > 8 ? time.getMonth() + 1 : "0" + (time.getMonth() + 1);
+  const day = time.getDate() > 9 ? time.getDate() : "0" + time.getDate();
+  return year + "/" + month + "/" + day;
 }
 
 module.exports.init = init;

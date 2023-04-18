@@ -56,7 +56,7 @@
 .upline-scroll-bar {
     height: 32px;
     display: flex;
-    margin: 24px 30px 4px 30px;
+    margin: 24px 48px 4px 48px;
 }
 
 .upline-scroll-button {
@@ -95,16 +95,34 @@
     background-color: rgb(102, 102, 102);
 }
 
-#leftDrag {
+.upline-left-drag {
     position: absolute;
     top: -4px;
     margin-left: -8px;
     z-index: 9999;
 }
 
-#rightDrag {
+.upline-right-drag {
     position: absolute;
     top: -4px;
     margin-left: -8px;
     z-index: 9999;
+}
+
+.upline-left-drag-time {
+    position: absolute;
+    z-index: 9999;
+    top: 13px;
+    margin-left: -60px;
+    font-size: 12px;
+    color: #888888
+}
+
+.upline-right-drag-time {
+    position: absolute;
+    z-index: 9999;
+    top: 13px;
+    margin-left: -4px;
+    font-size: 12px;
+    color: #888888
 }
