@@ -241,15 +241,13 @@ function drawLine() {
 function leftDragMousemove(event) {
   const sliderLeft = doc_slider.offsetLeft;
   const sliderWidth = doc_slider.offsetWidth;
-  const left2 = (event.x - sliderLeft) / sliderWidth;
   const rightDragLeft = doc_right_drag.style.left?.replace("px", "") || "0";
-  if (
-    event.x - sliderLeft >= 0 &&
-    event.x - sliderLeft <= parseInt(rightDragLeft) - 20 &&
-    HOUR_TIME_LENGTH / TOTAL_TIME / (right - left2) < MAX_VIEW_PROPORTION
-  ) {
-    grip.style.left = doc_left_drag.style.left = event.x - sliderLeft + "px";
-    grip.style.width = rightDragLeft - event.x + sliderLeft + "px";
+  let eventX = Math.max(event.x, sliderLeft);
+  eventX = Math.min(eventX, parseInt(rightDragLeft) + sliderLeft - 20);
+  const left2 = (eventX - sliderLeft) / sliderWidth;
+  if (HOUR_TIME_LENGTH / TOTAL_TIME / (right - left2) < MAX_VIEW_PROPORTION) {
+    grip.style.left = doc_left_drag.style.left = eventX - sliderLeft + "px";
+    grip.style.width = rightDragLeft - eventX + sliderLeft + "px";
     left = left2;
     draw(left, right - left);
   }
@@ -262,15 +260,13 @@ function leftDragMousemove(event) {
 function rightDragMousemove(event) {
   const sliderLeft = doc_slider.offsetLeft;
   const sliderWidth = doc_slider.offsetWidth;
-  const right2 = (event.x - sliderLeft) / sliderWidth;
   const leftDragLeft = doc_left_drag.style.left?.replace("px", "") || "0";
-  if (
-    event.x - sliderLeft <= sliderWidth &&
-    event.x - sliderLeft >= parseInt(leftDragLeft) + 20 &&
-    HOUR_TIME_LENGTH / TOTAL_TIME / (right2 - left) < MAX_VIEW_PROPORTION
-  ) {
-    doc_right_drag.style.left = event.x - sliderLeft + "px";
-    grip.style.width = event.x - sliderLeft - leftDragLeft + "px";
+  let eventX = Math.min(event.x, sliderWidth + sliderLeft);
+  eventX = Math.max(eventX, parseInt(leftDragLeft) + sliderLeft + 20);
+  const right2 = (eventX - sliderLeft) / sliderWidth;
+  if (HOUR_TIME_LENGTH / TOTAL_TIME / (right2 - left) < MAX_VIEW_PROPORTION) {
+    doc_right_drag.style.left = eventX - sliderLeft + "px";
+    grip.style.width = eventX - sliderLeft - leftDragLeft + "px";
     right = right2;
     draw(left, right - left);
   }
@@ -284,14 +280,17 @@ function middleDragMousemove(event) {
   const sliderLeft = doc_slider.offsetLeft;
   const sliderWidth = doc_slider.offsetWidth;
   const dragWidth = grip.style.width?.replace("px", "") || "0";
-  const dragLeft = event.x - sliderLeft - middleDraglayerX;
-  if (dragLeft >= 0 && dragLeft + parseInt(dragWidth) <= sliderWidth) {
-    grip.style.left = doc_left_drag.style.left = dragLeft + "px";
-    doc_right_drag.style.left = dragLeft + parseInt(dragWidth) + "px";
-    left = dragLeft / sliderWidth;
-    right = (dragLeft + parseInt(dragWidth)) / sliderWidth;
-    draw(left, right - left);
-  }
+  let eventX = Math.max(event.x, middleDraglayerX + sliderLeft);
+  eventX = Math.min(
+    eventX,
+    sliderWidth - parseInt(dragWidth) + sliderLeft + middleDraglayerX
+  );
+  const dragLeft = eventX - sliderLeft - middleDraglayerX;
+  grip.style.left = doc_left_drag.style.left = dragLeft + "px";
+  doc_right_drag.style.left = dragLeft + parseInt(dragWidth) + "px";
+  left = dragLeft / sliderWidth;
+  right = (dragLeft + parseInt(dragWidth)) / sliderWidth;
+  draw(left, right - left);
 }
 
 /**
