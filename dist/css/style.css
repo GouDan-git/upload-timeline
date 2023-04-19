@@ -126,3 +126,31 @@
     font-size: 12px;
     color: #888888
 }
+
+.upline-timeline-canvas {
+    position: relative;
+    margin: 0 8px;
+    display: flex;
+}
+
+.upline-event {
+    width: 0;
+    height: 0;
+    background-color: rgb(84, 110, 122);
+    border-radius: 4px;
+    position: absolute;
+    transition: height 0.2s ease-out, width 0.2s ease-out;
+    cursor: pointer;
+}
+
+.upline-event:hover {
+    border: 2px solid rgb(84, 110, 122);
+    margin-top: -1px;
+    margin-left: -1px;
+}
+
+.upline-timeline-sideline {
+    height: 2px;
+    width: 20px;
+    background-color: rgb(84, 110, 122);
+}

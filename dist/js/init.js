@@ -25,11 +25,17 @@ let doc_timeline_legend;
 let doc_cut_off_rule;
 let doc_left_drag_time;
 let doc_right_drag_time;
+let doc_timeline_left;
+let doc_timeline_right;
 
 // 变量
 let left = 0; // 左侧拖动按钮位置百分比
 let right = 1; // 右侧拖动按钮位置百分比
 let middleDraglayerX = 0; // 中间滑块鼠标按下时偏移量
+let leftTime = null; // 左侧拖动按钮表示时间
+let rightTime = null; // 右侧拖动按钮表示时间
+
+const eventMap = new Map(); // 存放event
 
 function init(data = []) {
   DATA = data; // 赋值全局常量
@@ -66,15 +72,28 @@ function getDoc() {
   doc_cut_off_rule = document.getElementById("cutOffRule");
   doc_left_drag_time = document.getElementById("leftDragTime");
   doc_right_drag_time = document.getElementById("rightDragTime");
+  doc_timeline_left = document.getElementById("timelineLeft");
+  doc_timeline_right = document.getElementById("timelineRight");
 }
 
 /**
  * @description 初始化画布和滚动条
  */
 function initCanvasAndScroll() {
+  // 初始化画布两边背景
+  for (let i = 0; i < DATA.length; i++) {
+    const line = document.createElement("div");
+    line.className = "upline-timeline-sideline";
+    line.style.marginTop = i === 0 ? "19px" : "28px";
+    doc_timeline_left.appendChild(line);
+    const line2 = document.createElement("div");
+    line2.className = "upline-timeline-sideline";
+    line2.style.marginTop = i === 0 ? "19px" : "28px";
+    doc_timeline_right.appendChild(line2);
+  }
   // 初始化画布
   doc_canvas.height = 10 + DATA.length * 30;
-  doc_canvas.width = timelineCanvas.clientWidth;
+  doc_canvas.width = timelineCanvas.clientWidth - 40; // 40为side背景宽度
   // 滑块区域宽度
   const sliderWidth = doc_slider.offsetWidth;
   // 初始化可视化组件
@@ -126,7 +145,7 @@ function setAction() {
  */
 function resizeScroll() {
   const sliderWidth = doc_slider.offsetWidth;
-  doc_canvas.width = doc_timeline_canvas.clientWidth;
+  doc_canvas.width = doc_timeline_canvas.clientWidth - 40;
   doc_grip.style.left = doc_left_drag.style.left = sliderWidth * left + "px";
   doc_right_drag.style.left = sliderWidth * right + "px";
   doc_grip.style.width = (right - left) * sliderWidth + "px";
@@ -154,7 +173,7 @@ function draw(offset, times) {
   drawLine();
   setLeftDragTime();
   setRightDragTime();
-  // drawUpload();
+  drawUpload();
 }
 
 /**
@@ -190,19 +209,6 @@ function drawRect(offset, times, timeArray, timeType) {
 }
 
 /**
- * @description 绘制上传的文件
- */
-// TODO
-function drawUpload() {
-  const dragStartTime = new Date(START_TIME.getTime() + left * TOTAL_TIME);
-  const dragEndTime = new Date(START_TIME.getTime() + right * TOTAL_TIME);
-  // const gripLength = right - left;
-  // DATA.forEach((team, index) => {
-  //   team.uploadHistory.forEach((history) => {});
-  // });
-}
-
-/**
  *
  * @param {*} time DATE信息
  * @param {*} timeType 时间类型
@@ -230,7 +236,7 @@ function getTimeText(time, timeType) {
 function drawLine() {
   doc_ctx.fillStyle = "rgb(84, 110, 122)";
   DATA.forEach((item, index) => {
-    doc_ctx.fillRect(4, 19 + index * 30, doc_canvas.width - 8, 2);
+    doc_ctx.fillRect(0, 19 + index * 30, doc_canvas.width, 2);
   });
 }
 
@@ -634,8 +640,8 @@ function getFirstWeekTime(time) {
  * @description 设置leftDrag的时间点
  */
 function setLeftDragTime() {
-  const time = new Date(START_TIME.getTime() + left * TOTAL_TIME);
-  doc_left_drag_time.innerText = formateDate(time);
+  leftTime = new Date(START_TIME.getTime() + left * TOTAL_TIME);
+  doc_left_drag_time.innerText = formateDate(leftTime);
   doc_left_drag_time.style.left = doc_left_drag.style.left;
 }
 
@@ -643,8 +649,8 @@ function setLeftDragTime() {
  * @description 设置rightDrag的时间点
  */
 function setRightDragTime() {
-  const time = new Date(START_TIME.getTime() + right * TOTAL_TIME);
-  doc_right_drag_time.innerText = formateDate(time);
+  rightTime = new Date(START_TIME.getTime() + right * TOTAL_TIME);
+  doc_right_drag_time.innerText = formateDate(rightTime);
   doc_right_drag_time.style.left = doc_right_drag.style.left;
 }
 
@@ -658,6 +664,49 @@ function formateDate(time) {
     time.getMonth() > 8 ? time.getMonth() + 1 : "0" + (time.getMonth() + 1);
   const day = time.getDate() > 9 ? time.getDate() : "0" + time.getDate();
   return year + "/" + month + "/" + day;
+}
+
+/**
+ * @description 绘制上传的文件
+ */
+function drawUpload() {
+  const totalTime = rightTime.getTime() - leftTime.getTime();
+  DATA.forEach((team, index) => {
+    team.uploadHistory.forEach((history) => {
+      const eventItem = eventMap.get(history.uploadTime);
+      // 如果在显示范围内
+      if (history.uploadTime >= leftTime && history.uploadTime <= rightTime) {
+        // 左边距（百分比）
+        const marginLeft =
+          (history.uploadTime.getTime() - leftTime.getTime()) / totalTime;
+        // 维护eventMap
+        if (eventItem) {
+          eventItem.style.left = marginLeft * doc_canvas.width + 10 + "px";
+        } else {
+          // 如果eventMap中没有，则创建一个
+          const event = document.createElement("div");
+          event.className = "upline-event";
+          event.style.top = index * 30 + 10 + "px";
+          event.style.left = marginLeft * doc_canvas.width + 10 + "px";
+          doc_timeline_canvas.appendChild(event);
+          eventMap.set(history.uploadTime, event);
+          setTimeout(() => {
+            event.style.width = "20px";
+            event.style.height = "20px";
+          });
+        }
+      } else {
+        if (eventItem) {
+          eventItem.style.width = "0";
+          eventItem.style.height = "0";
+          eventMap.set(history.uploadTime, null);
+          setTimeout(() => {
+            eventItem.remove();
+          }, 200);
+        }
+      }
+    });
+  });
 }
 
 module.exports.init = init;
