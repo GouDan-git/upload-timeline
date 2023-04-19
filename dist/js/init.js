@@ -242,15 +242,22 @@ function leftDragMousemove(event) {
   const sliderLeft = doc_slider.offsetLeft;
   const sliderWidth = doc_slider.offsetWidth;
   const rightDragLeft = doc_right_drag.style.left?.replace("px", "") || "0";
-  let eventX = Math.max(event.x, sliderLeft);
-  eventX = Math.min(eventX, parseInt(rightDragLeft) + sliderLeft - 20);
+  // event.x限制条件
+  let eventX = Math.max(event.x, sliderLeft); // > 0
+  eventX = Math.min(eventX, parseInt(rightDragLeft) + sliderLeft); // < rightDragLeft
+  // 显示hour为单位的时间线时，单个时间块最多占整个view的MAX_VIEW_PROPORTION
+  eventX = Math.min(
+    eventX,
+    (right - HOUR_TIME_LENGTH / TOTAL_TIME / MAX_VIEW_PROPORTION) *
+      sliderWidth +
+      sliderLeft
+  );
   const left2 = (eventX - sliderLeft) / sliderWidth;
-  if (HOUR_TIME_LENGTH / TOTAL_TIME / (right - left2) < MAX_VIEW_PROPORTION) {
-    grip.style.left = doc_left_drag.style.left = eventX - sliderLeft + "px";
-    grip.style.width = rightDragLeft - eventX + sliderLeft + "px";
-    left = left2;
-    draw(left, right - left);
-  }
+  grip.style.left = doc_left_drag.style.left =
+    Math.min(eventX - sliderLeft, parseInt(rightDragLeft) - 20) + "px";
+  grip.style.width = Math.max(rightDragLeft - eventX + sliderLeft, 20) + "px";
+  left = left2;
+  draw(left, right - left);
 }
 
 /**
@@ -261,15 +268,20 @@ function rightDragMousemove(event) {
   const sliderLeft = doc_slider.offsetLeft;
   const sliderWidth = doc_slider.offsetWidth;
   const leftDragLeft = doc_left_drag.style.left?.replace("px", "") || "0";
+  // event.x限制条件
   let eventX = Math.min(event.x, sliderWidth + sliderLeft);
-  eventX = Math.max(eventX, parseInt(leftDragLeft) + sliderLeft + 20);
+  eventX = Math.max(eventX, parseInt(leftDragLeft) + sliderLeft);
+  eventX = Math.max(
+    eventX,
+    (left + HOUR_TIME_LENGTH / TOTAL_TIME / MAX_VIEW_PROPORTION) * sliderWidth +
+      sliderLeft
+  );
   const right2 = (eventX - sliderLeft) / sliderWidth;
-  if (HOUR_TIME_LENGTH / TOTAL_TIME / (right2 - left) < MAX_VIEW_PROPORTION) {
-    doc_right_drag.style.left = eventX - sliderLeft + "px";
-    grip.style.width = eventX - sliderLeft - leftDragLeft + "px";
-    right = right2;
-    draw(left, right - left);
-  }
+  doc_right_drag.style.left =
+    Math.max(eventX - sliderLeft, parseInt(leftDragLeft) + 20) + "px";
+  grip.style.width = Math.max(eventX - sliderLeft - leftDragLeft, 20) + "px";
+  right = right2;
+  draw(left, right - left);
 }
 
 /**
@@ -288,8 +300,10 @@ function middleDragMousemove(event) {
   const dragLeft = eventX - sliderLeft - middleDraglayerX;
   grip.style.left = doc_left_drag.style.left = dragLeft + "px";
   doc_right_drag.style.left = dragLeft + parseInt(dragWidth) + "px";
+  // 利用原始差值计算right
+  const difference = right - left;
   left = dragLeft / sliderWidth;
-  right = (dragLeft + parseInt(dragWidth)) / sliderWidth;
+  right = left + difference;
   draw(left, right - left);
 }
 
