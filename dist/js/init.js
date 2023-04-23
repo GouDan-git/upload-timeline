@@ -31,9 +31,11 @@ let doc_timeline_right;
 // 变量
 let left = 0; // 左侧拖动按钮位置百分比
 let right = 1; // 右侧拖动按钮位置百分比
-let middleDraglayerX = 0; // 中间滑块鼠标按下时偏移量
+let draglayerX = 0; // 中间滑块鼠标按下时偏移量
 let leftTime = null; // 左侧拖动按钮表示时间
 let rightTime = null; // 右侧拖动按钮表示时间
+let smallMarginLeft = 0;
+let smallMarginRight = 0;
 
 const eventMap = new Map(); // 存放event
 
@@ -121,14 +123,16 @@ function setAction() {
   // 添加鼠标抬起事件
   document.addEventListener("mouseup", mouseUp);
   // 添加鼠标点击事件
-  doc_left_drag.onmousedown = function () {
+  doc_left_drag.onmousedown = function (event) {
+    draglayerX = event.x;
     document.addEventListener("mousemove", leftDragMousemove);
   };
-  doc_right_drag.onmousedown = function () {
+  doc_right_drag.onmousedown = function (event) {
+    draglayerX = event.x;
     document.addEventListener("mousemove", rightDragMousemove);
   };
   doc_grip.onmousedown = function (event) {
-    middleDraglayerX = event.layerX;
+    draglayerX = event.layerX;
     document.addEventListener("mousemove", middleDragMousemove);
   };
   doc_cut_off_rule.onmousedown = function () {
@@ -146,9 +150,13 @@ function setAction() {
 function resizeScroll() {
   const sliderWidth = doc_slider.offsetWidth;
   doc_canvas.width = doc_timeline_canvas.clientWidth - 40;
-  doc_grip.style.left = doc_left_drag.style.left = sliderWidth * left + "px";
-  doc_right_drag.style.left = sliderWidth * right + "px";
-  doc_grip.style.width = (right - left) * sliderWidth + "px";
+  doc_grip.style.left = doc_left_drag.style.left = 0 + "px";
+  doc_right_drag.style.left = sliderWidth + "px";
+  doc_grip.style.width = sliderWidth + "px";
+  left = 0;
+  right = 1;
+  smallMarginLeft = 0;
+  smallMarginRight = 0;
   draw(left, right - left, DATA);
 }
 
@@ -245,25 +253,57 @@ function drawLine() {
  * @param {*} event 事件详情
  */
 function leftDragMousemove(event) {
+  const diff = event.x - draglayerX;
+  if (diff === 0) return;
   const sliderLeft = doc_slider.offsetLeft;
   const sliderWidth = doc_slider.offsetWidth;
-  const rightDragLeft = doc_right_drag.style.left?.replace("px", "") || "0";
-  // event.x限制条件
-  let eventX = Math.max(event.x, sliderLeft); // > 0
-  eventX = Math.min(eventX, parseInt(rightDragLeft) + sliderLeft); // < rightDragLeft
-  // 显示hour为单位的时间线时，单个时间块最多占整个view的MAX_VIEW_PROPORTION
-  eventX = Math.min(
-    eventX,
-    (right - HOUR_TIME_LENGTH / TOTAL_TIME / MAX_VIEW_PROPORTION) *
-      sliderWidth +
-      sliderLeft
+  const rightDragLeft = parseInt(
+    doc_right_drag.style.left?.replace("px", "") || "0"
   );
-  const left2 = (eventX - sliderLeft) / sliderWidth;
-  grip.style.left = doc_left_drag.style.left =
-    Math.min(eventX - sliderLeft, parseInt(rightDragLeft) - 20) + "px";
-  grip.style.width = Math.max(rightDragLeft - eventX + sliderLeft, 20) + "px";
-  left = left2;
+  const leftDragLeft = parseInt(
+    doc_left_drag.style.left?.replace("px", "") || "0"
+  );
+
+  // 计算实际位置
+  let eventX = leftDragLeft + sliderLeft + diff;
+
+  // 当进入微调，且正在拉长时间线，且微调值不为0时
+  if (grip.offsetWidth === 20 && diff < 0 && smallMarginLeft !== 0) {
+    smallMarginLeft += diff;
+  } else {
+    // eventX限制条件
+    eventX = Math.max(eventX, sliderLeft); // > 0
+    eventX = Math.min(eventX, sliderLeft + rightDragLeft - 20); // > 0
+    eventX = Math.min(eventX, rightDragLeft + sliderLeft); // < rightDragLeft
+    // 显示hour为单位的时间线时，单个时间块最多占整个view的MAX_VIEW_PROPORTION
+    eventX = Math.min(
+      eventX,
+      (right - HOUR_TIME_LENGTH / TOTAL_TIME / MAX_VIEW_PROPORTION) *
+        sliderWidth +
+        sliderLeft
+    );
+
+    // 判断是否进入微调，且正在缩短时间线
+    if (grip.offsetWidth === 20) {
+      smallMarginLeft += diff;
+      smallMarginLeft = Math.min(
+        smallMarginLeft,
+        (right - HOUR_TIME_LENGTH / TOTAL_TIME / MAX_VIEW_PROPORTION) *
+          sliderWidth +
+          sliderLeft -
+          eventX
+      );
+    }
+
+    // 改变视图
+    grip.style.left = doc_left_drag.style.left = eventX - sliderLeft + "px";
+    grip.style.width = rightDragLeft - eventX + sliderLeft + "px";
+  }
+
+  smallMarginLeft = Math.max(smallMarginLeft, 0);
+  left = (eventX + smallMarginLeft - sliderLeft) / sliderWidth;
   draw(left, right - left);
+  draglayerX = event.x;
 }
 
 /**
@@ -271,23 +311,54 @@ function leftDragMousemove(event) {
  * @param {*} event 事件详情
  */
 function rightDragMousemove(event) {
+  const diff = event.x - draglayerX;
+  if (diff === 0) return;
   const sliderLeft = doc_slider.offsetLeft;
   const sliderWidth = doc_slider.offsetWidth;
-  const leftDragLeft = doc_left_drag.style.left?.replace("px", "") || "0";
-  // event.x限制条件
-  let eventX = Math.min(event.x, sliderWidth + sliderLeft);
-  eventX = Math.max(eventX, parseInt(leftDragLeft) + sliderLeft);
-  eventX = Math.max(
-    eventX,
-    (left + HOUR_TIME_LENGTH / TOTAL_TIME / MAX_VIEW_PROPORTION) * sliderWidth +
-      sliderLeft
+  const leftDragLeft = parseInt(
+    doc_left_drag.style.left?.replace("px", "") || "0"
   );
-  const right2 = (eventX - sliderLeft) / sliderWidth;
-  doc_right_drag.style.left =
-    Math.max(eventX - sliderLeft, parseInt(leftDragLeft) + 20) + "px";
-  grip.style.width = Math.max(eventX - sliderLeft - leftDragLeft, 20) + "px";
-  right = right2;
+  const rightDragLeft = parseInt(
+    doc_right_drag.style.left?.replace("px", "") || "0"
+  );
+
+  // 计算实际位置
+  let eventX = rightDragLeft + sliderLeft + diff;
+
+  // 当进入微调，且正在拉长时间线，且微调值不为0时
+  if (grip.offsetWidth === 20 && diff > 0 && smallMarginRight !== 0) {
+    smallMarginRight += diff;
+  } else {
+    // eventX限制条件
+    eventX = Math.min(eventX, sliderWidth + sliderLeft);
+    eventX = Math.max(eventX, leftDragLeft + sliderLeft + 20);
+    eventX = Math.max(
+      eventX,
+      (left + HOUR_TIME_LENGTH / TOTAL_TIME / MAX_VIEW_PROPORTION) *
+        sliderWidth +
+        sliderLeft
+    );
+
+    // 判断是否进入微调，且正在缩短时间线
+    if (grip.offsetWidth === 20) {
+      smallMarginRight += diff;
+      smallMarginRight = Math.max(
+        smallMarginRight,
+        (left + HOUR_TIME_LENGTH / TOTAL_TIME / MAX_VIEW_PROPORTION) *
+          sliderWidth +
+          sliderLeft -
+          eventX
+      );
+    }
+
+    // 改变视图
+    doc_right_drag.style.left = eventX - sliderLeft + "px";
+    grip.style.width = eventX - sliderLeft - leftDragLeft + "px";
+  }
+  smallMarginRight = Math.min(smallMarginRight, 0);
+  right = (eventX + smallMarginRight - sliderLeft) / sliderWidth;
   draw(left, right - left);
+  draglayerX = event.x;
 }
 
 /**
@@ -298,17 +369,17 @@ function middleDragMousemove(event) {
   const sliderLeft = doc_slider.offsetLeft;
   const sliderWidth = doc_slider.offsetWidth;
   const dragWidth = grip.style.width?.replace("px", "") || "0";
-  let eventX = Math.max(event.x, middleDraglayerX + sliderLeft);
+  let eventX = Math.max(event.x, draglayerX + sliderLeft);
   eventX = Math.min(
     eventX,
-    sliderWidth - parseInt(dragWidth) + sliderLeft + middleDraglayerX
+    sliderWidth - parseInt(dragWidth) + sliderLeft + draglayerX
   );
-  const dragLeft = eventX - sliderLeft - middleDraglayerX;
+  const dragLeft = eventX - sliderLeft - draglayerX;
   grip.style.left = doc_left_drag.style.left = dragLeft + "px";
   doc_right_drag.style.left = dragLeft + parseInt(dragWidth) + "px";
   // 利用原始差值计算right
   const difference = right - left;
-  left = dragLeft / sliderWidth;
+  left = (dragLeft + smallMarginLeft) / sliderWidth;
   right = left + difference;
   draw(left, right - left);
 }
